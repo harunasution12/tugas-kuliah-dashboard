@@ -135,7 +135,6 @@
     </main>
   </div>
 
-  <!-- MODAL FORM -->
   <div
     id="modalOverlay"
     class="fixed inset-0 bg-gray-900/50 backdrop-blur-sm hidden items-center justify-center z-50 p-4"
@@ -388,9 +387,14 @@
       const urlRegex = /(https?:\/\/[^\s]+)/g;
 
       return escaped.replace(urlRegex, function(url) {
-        return `<a href="${url}" target="_blank" rel="noopener" class="text-blue-600 underline hover:text-blue-800 break-allurn elCourseCustom.value.trim();
-      }
+        return `<a href="${url}" target="_blank" rel="noopener" class="text-blue-600 underline hover:text-blue-800 break-all">${url}</a>`;
+      });
+    }
 
+    function getSelectedCourse() {
+      if (elCourse.value === "__custom") {
+        return elCourseCustom.value.trim();
+      }
       return elCourse.value.trim();
     }
 
@@ -671,9 +675,29 @@
               data-id="${task.id}"
               class="text-gray-600 hover:text-blue-700 bg-gray-100 hover:bg-blue-100 px-2.5 py-1 rounded text-xs font-semibold transition"
               type="button"
-                    class="text-green-700 bg-green-100 hover:bg-green-200 px-2.5 py-1 rounded text-xs font-semibold transition"
+            >
+              ✏️ Edit
+            </button>
+          `
+          : "";
+
+      const finishButton =
+        task.status === "Sedang Berjalan"
+          ? `
+            <button
+              data-action="done"
+              data-id="${task.id}"
+              class="text-green-700 bg-green-100 hover:bg-green-200 px-2.5 py-1 rounded text-xs font-semibold transition"
               type="button"
-           -2 py-0.5 rounded max-w-[100%] truncate" title="${escapeHtml(task.course)}">
+            >
+              ✅ Selesai
+            </button>
+          `
+          : "";
+
+      el.innerHTML = `
+        <div class="flex justify-between items-start mb-2">
+          <span class="bg-blue-100 text-blue-800 text-[10px] font-bold px-2 py-0.5 rounded max-w-[100%] truncate" title="${escapeHtml(task.course)}">
             📚 ${escapeHtml(task.course)}
           </span>
         </div>
@@ -702,9 +726,15 @@
             data-id="${task.id}"
             class="text-red-700 bg-red-100 hover:bg-red-200 px-2.5 py-1 rounded text-xs font-semibold transition"
             type="button"
-         -200 px-2.5 py-1 rounded text-xs font-semibold transition"
-         e-200 px-2.5 py-1 rounded text-xs font-semibold transition"
-         tion();
+          >
+            🗑️ Hapus
+          </button>
+        </div>
+      `;
+
+      el.querySelectorAll("button").forEach((btn) => {
+        btn.addEventListener("click", async (e) => {
+          e.stopPropagation();
 
           const action = btn.dataset.action;
           const id = btn.dataset.id;
