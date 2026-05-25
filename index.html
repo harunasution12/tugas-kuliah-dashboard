@@ -74,7 +74,7 @@
           </span>
 
           <span id="syncStatus" class="text-xs bg-blue-50 text-blue-700 border border-blue-100 px-2 py-0.5 rounded-full">
-            Menghubungkan Firebase...
+            Menghubungkan...
           </span>
         </div>
       </div>
@@ -541,7 +541,7 @@
     }
 
     function listenTasks() {
-      setSyncStatus("Menghubungkan Firebase...", "info");
+      setSyncStatus("Menghubungkan...", "info");
 
       unsubscribeTasks = onSnapshot(
         tasksCollection,
