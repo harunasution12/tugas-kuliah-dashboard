@@ -41,15 +41,6 @@
       }
     }
 
-    .dragging {
-      opacity: 0.5;
-    }
-
-    .drag-over {
-      background-color: #eff6ff !important;
-      border: 2px dashed #3b82f6 !important;
-    }
-
     .tabular-nums {
       font-variant-numeric: tabular-nums;
     }
@@ -253,19 +244,6 @@
           ></textarea>
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-gray-600 mb-1">
-            Status
-          </label>
-          <select
-            id="inputStatus"
-            class="w-full p-2 bg-gray-50 border border-gray-300 rounded-md text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-          >
-            <option value="Sedang Berjalan">Sedang Berjalan</option>
-            <option value="Selesai">Selesai</option>
-          </select>
-        </div>
-
         <div class="pt-3 flex gap-2">
           <button
             type="button"
@@ -332,7 +310,6 @@
     const elInputer = document.getElementById("inputInputer");
     const elDeadline = document.getElementById("inputDeadline");
     const elNotes = document.getElementById("inputNotes");
-    const elStatus = document.getElementById("inputStatus");
     const elModalTitle = document.getElementById("modalTitle");
     const dateTime = document.getElementById("dateTime");
     const syncStatus = document.getElementById("syncStatus");
@@ -340,12 +317,8 @@
     const btnOpenModal = document.getElementById("btnOpenModal");
     const btnCloseModal = document.getElementById("btnCloseModal");
 
-    const colSedangBerjalan = document.getElementById("col-SedangBerjalan");
-    const colSelesai = document.getElementById("col-Selesai");
-
     function setSyncStatus(text, type = "info") {
       syncStatus.textContent = text;
-
       syncStatus.className = "text-xs border px-2 py-0.5 rounded-full";
 
       if (type === "ok") {
@@ -359,7 +332,6 @@
 
     function toDatetimeLocalValue(date) {
       const pad = (n) => String(n).padStart(2, "0");
-
       return (
         date.getFullYear() +
         "-" +
@@ -445,7 +417,7 @@
     }
 
     function getTaskUrgencyClass(task) {
-      if (task.status === "Selesai") return "border-green-500";
+      if (new Date(task.deadline) <= new Date()) return "border-green-500";
 
       const diff = new Date(task.deadline) - new Date();
       const hours = diff / 3600000;
@@ -502,44 +474,6 @@
       osc.stop(audioCtx.currentTime + 0.45);
     }
 
-    function getWhatsappLink(task) {
-      const d = formatDeadline(task.deadline);
-
-      const text =
-        `Pengingat Tugas Kuliah\n\n` +
-        `Judul: ${task.title}\n` +
-        `Mata Kuliah: ${task.course}\n` +
-        `Deadline: ${d.full}\n` +
-        `Inputer: ${task.inputer}\n` +
-        `Status: ${task.status}\n` +
-        (task.notes ? `Keterangan: ${task.notes}\n` : "");
-
-      return "https://wa.me/?text=" + encodeURIComponent(text);
-    }
-
-    function toGoogleCalendarDate(date) {
-      return new Date(date).toISOString().replace(/[-:]|\.\d{3}/g, "");
-    }
-
-    function getGoogleCalendarLink(task) {
-      const start = new Date(task.deadline);
-      const end = new Date(start.getTime() + 60 * 60 * 1000);
-
-      const details =
-        `Mata Kuliah: ${task.course}\n` +
-        `Inputer: ${task.inputer}\n` +
-        `Status: ${task.status}\n` +
-        (task.notes ? `Keterangan: ${task.notes}` : "");
-
-      return (
-        "https://www.google.com/calendar/render?action=TEMPLATE" +
-        "&text=" + encodeURIComponent(task.title) +
-        "&dates=" + toGoogleCalendarDate(start) + "/" + toGoogleCalendarDate(end) +
-        "&details=" + encodeURIComponent(details) +
-        "&sf=true&output=xml"
-      );
-    }
-
     function listenTasks() {
       setSyncStatus("Menghubungkan...", "info");
 
@@ -587,8 +521,10 @@
       listSedangBerjalan.innerHTML = "";
       listSelesai.innerHTML = "";
 
-      let runningTasks = tasks.filter((task) => task.status === "Sedang Berjalan");
-      let doneTasks = tasks.filter((task) => task.status === "Selesai");
+      // Pengelompokan murni berdasarkan waktu deadline vs waktu sekarang
+      const now = new Date();
+      let runningTasks = tasks.filter((task) => new Date(task.deadline) > now);
+      let doneTasks = tasks.filter((task) => new Date(task.deadline) <= now);
 
       runningTasks.sort((a, b) => new Date(a.deadline) - new Date(b.deadline));
       doneTasks.sort((a, b) => new Date(b.updatedAt || b.createdAt || 0) - new Date(a.updatedAt || a.createdAt || 0));
@@ -626,29 +562,24 @@
     function createTaskCard(task) {
       const el = document.createElement("div");
       const deadline = formatDeadline(task.deadline);
+      const isRunning = new Date(task.deadline) > new Date();
 
       el.className = `
         bg-white border border-gray-200 border-l-4 ${getTaskUrgencyClass(task)}
-        p-3 rounded-lg shadow-sm hover:shadow-md cursor-grab active:cursor-grabbing transition-all
+        p-3 rounded-lg shadow-sm hover:shadow-md transition-all
       `;
-
-      el.setAttribute("draggable", "true");
       el.dataset.id = task.id;
 
-      el.addEventListener("dragstart", handleDragStart);
-      el.addEventListener("dragend", handleDragEnd);
-
-      const timerHTML =
-        task.status === "Sedang Berjalan"
+      const timerHTML = isRunning
           ? `
-            <div class="bg-gray-50 rounded border border-gray-100 p-2 flex justify-between items-center mt-2">
-              <span class="text-xs text-gray-500">Sisa waktu:</span>
+            <div class="bg-gray-50 rounded border border-gray-100 p-2 flex justify-between items-center mt-2 gap-2">
+              <span class="text-xs text-gray-500 whitespace-nowrap">Sisa waktu:</span>
               <span
-                class="countdown-timer text-sm font-bold tabular-nums text-blue-600"
+                class="countdown-timer text-xs md:text-sm font-bold tabular-nums text-blue-600 text-right"
                 data-id="${task.id}"
                 data-deadline="${task.deadline}"
               >
-                --:--:--
+                Memuat...
               </span>
             </div>
           `
@@ -667,33 +598,16 @@
         `
         : "";
 
-      const editButton =
-        task.status === "Sedang Berjalan"
-          ? `
-            <button
-              data-action="edit"
-              data-id="${task.id}"
-              class="text-gray-600 hover:text-blue-700 bg-gray-100 hover:bg-blue-100 px-2.5 py-1 rounded text-xs font-semibold transition"
-              type="button"
-            >
-              ✏️ Edit
-            </button>
-          `
-          : "";
-
-      const finishButton =
-        task.status === "Sedang Berjalan"
-          ? `
-            <button
-              data-action="done"
-              data-id="${task.id}"
-              class="text-green-700 bg-green-100 hover:bg-green-200 px-2.5 py-1 rounded text-xs font-semibold transition"
-              type="button"
-            >
-              ✅ Selesai
-            </button>
-          `
-          : "";
+      const editButton = `
+        <button
+          data-action="edit"
+          data-id="${task.id}"
+          class="text-gray-600 hover:text-blue-700 bg-gray-100 hover:bg-blue-100 px-2.5 py-1 rounded text-xs font-semibold transition"
+          type="button"
+        >
+          ✏️ Edit
+        </button>
+      `;
 
       el.innerHTML = `
         <div class="flex justify-between items-start mb-2">
@@ -719,7 +633,6 @@
 
         <div class="mt-3 flex flex-wrap justify-end gap-1.5 border-t pt-2 border-gray-50">
           ${editButton}
-          ${finishButton}
 
           <button
             data-action="delete"
@@ -740,7 +653,6 @@
           const id = btn.dataset.id;
 
           if (action === "edit") editTask(id);
-          if (action === "done") await markDone(id);
           if (action === "delete") await deleteTask(id);
         });
       });
@@ -751,7 +663,7 @@
     function formatCountdown(deadline) {
       const diff = new Date(deadline) - new Date();
 
-      if (diff <= 0) return "00:00:00";
+      if (diff <= 0) return "0 Jam, 0 Menit, 0 Detik";
 
       const days = Math.floor(diff / (1000 * 60 * 60 * 24));
       const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -764,47 +676,41 @@
         text += `${days} Hari, `;
       }
 
-      text +=
-        `${String(hours).padStart(2, "0")}:` +
-        `${String(minutes).padStart(2, "0")}:` +
-        `${String(seconds).padStart(2, "0")}`;
+      text += `${hours} Jam, ${minutes} Menit, ${seconds} Detik`;
 
       return text;
     }
 
     async function updateTimers() {
+      // 1. Cek jika ada tugas yang baru saja melewati deadline untuk membunyikan beep
       for (const task of tasks) {
-        if (task.status === "Sedang Berjalan") {
-          const diff = new Date(task.deadline) - new Date();
-
-          if (diff <= 0) {
-            if (!task.notified) {
-              playBeep();
-            }
-
-            await updateTask(task.id, {
-              status: "Selesai",
-              notified: true
-            });
-
-            return;
-          }
+        const diff = new Date(task.deadline) - new Date();
+        if (diff <= 0 && !task.notified) {
+          playBeep();
+          // Update DB supaya beep hanya sekali
+          await updateTask(task.id, { notified: true });
         }
       }
 
+      // 2. Perbarui tampilan timer dan pindahkan otomatis jika waktu habis
       document.querySelectorAll(".countdown-timer").forEach((el) => {
         const deadline = el.getAttribute("data-deadline");
         const diff = new Date(deadline) - new Date();
-        const hours = diff / 3600000;
 
-        el.textContent = formatCountdown(deadline);
-
-        if (hours <= 24) {
-          el.classList.remove("text-blue-600");
-          el.classList.add("text-orange-600");
+        if (diff <= 0) {
+          // Jika waktu habis, render ulang UI agar otomatis pindah ke Selesai
+          render();
         } else {
-          el.classList.remove("text-orange-600");
-          el.classList.add("text-blue-600");
+          const hours = diff / 3600000;
+          el.textContent = formatCountdown(deadline);
+
+          if (hours <= 24) {
+            el.classList.remove("text-blue-600");
+            el.classList.add("text-orange-600");
+          } else {
+            el.classList.remove("text-orange-600");
+            el.classList.add("text-blue-600");
+          }
         }
       });
     }
@@ -820,18 +726,6 @@
       }
     }
 
-    async function markDone(id) {
-      try {
-        await updateTask(id, {
-          status: "Selesai",
-          notified: true
-        });
-      } catch (error) {
-        console.error(error);
-        alert("Gagal menandai selesai.");
-      }
-    }
-
     function editTask(id) {
       const task = tasks.find((item) => item.id === id);
 
@@ -844,7 +738,6 @@
       elInputer.value = task.inputer || "";
       elDeadline.value = task.deadline || "";
       elNotes.value = task.notes || "";
-      elStatus.value = task.status || "Sedang Berjalan";
 
       elModalTitle.textContent = "Edit Tugas";
       openModal();
@@ -872,45 +765,9 @@
       tomorrow.setDate(tomorrow.getDate() + 1);
 
       elDeadline.value = toDatetimeLocalValue(tomorrow);
-      elStatus.value = "Sedang Berjalan";
 
       elModalTitle.textContent = "Tambah Tugas Baru";
       openModal();
-    }
-
-    function handleDragStart(event) {
-      event.dataTransfer.setData("text/plain", event.currentTarget.dataset.id);
-      event.currentTarget.classList.add("dragging");
-    }
-
-    function handleDragEnd(event) {
-      event.currentTarget.classList.remove("dragging");
-    }
-
-    function handleDragOver(event) {
-      event.preventDefault();
-      event.currentTarget.classList.add("drag-over");
-    }
-
-    function handleDragLeave(event) {
-      event.currentTarget.classList.remove("drag-over");
-    }
-
-    async function handleDrop(event, newStatus) {
-      event.preventDefault();
-      event.currentTarget.classList.remove("drag-over");
-
-      const id = event.dataTransfer.getData("text/plain");
-
-      try {
-        await updateTask(id, {
-          status: newStatus,
-          notified: newStatus === "Selesai"
-        });
-      } catch (error) {
-        console.error(error);
-        alert("Gagal memindahkan tugas.");
-      }
     }
 
     elCourse.addEventListener("change", () => {
@@ -936,30 +793,14 @@
 
     document.body.addEventListener("click", initAudio, { once: true });
 
-    colSedangBerjalan.addEventListener("dragover", handleDragOver);
-    colSedangBerjalan.addEventListener("dragleave", handleDragLeave);
-    colSedangBerjalan.addEventListener("drop", (event) => {
-      handleDrop(event, "Sedang Berjalan");
-    });
-
-    colSelesai.addEventListener("dragover", handleDragOver);
-    colSelesai.addEventListener("dragleave", handleDragLeave);
-    colSelesai.addEventListener("drop", (event) => {
-      handleDrop(event, "Selesai");
-    });
-
     taskForm.addEventListener("submit", async (event) => {
       event.preventDefault();
 
       const selectedCourse = getSelectedCourse();
 
-      let statusValue = elStatus.value;
-      let notifiedValue = false;
-
-      if (new Date(elDeadline.value) <= new Date()) {
-        statusValue = "Selesai";
-        notifiedValue = true;
-      }
+      // Set 'notified' true otomatis jika deadline sudah lewat saat membuat/mengedit,
+      // agar saat dibuat tidak mendadak bunyi beep.
+      const isPastDeadline = new Date(elDeadline.value) <= new Date();
 
       const data = {
         title: elTitle.value.trim(),
@@ -967,8 +808,7 @@
         inputer: elInputer.value,
         deadline: elDeadline.value,
         notes: elNotes.value.trim(),
-        status: statusValue,
-        notified: notifiedValue
+        notified: isPastDeadline 
       };
 
       if (!data.title || !data.course || !data.inputer || !data.deadline) {
@@ -994,7 +834,7 @@
     listenTasks();
 
     setInterval(updateClock, 1000);
-    setInterval(updateTimers, 1000);
+    setInterval(updateTimers, 1000); // Mengecek timer secara real-time setiap detik
   </script>
 </body>
 </html>
